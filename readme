@@ -1,73 +1,21 @@
-# Midasbuy Redeem API
+<h1 align="center">Midasbuy Redeem API</h1>
 
-HTTP API for redeeming Midasbuy codes and looking up player info. All
-endpoints are `POST`, expect `application/json` request bodies (up to 16 KB)
-and are authenticated with the `x-key` header.
+<p align="center">
+  Lightweight HTTP API for redeeming Midasbuy codes and looking up player info.
+  <br/>
+  <sub>Per-key quotas · per-IP guard · encrypted cookies at rest · Telegram bot admin.</sub>
+</p>
 
-- **Base URL** — `http://<your-server>:8000`
-- **Auth** — header `x-key: <api-key>`
-- **Content** — `application/json`
-
-> The `x-key` is issued via the Telegram bot (`/accept <user_id> <days>`).
-> The same bot is used to set the Midasbuy cookies that the API will use.
-
-## Endpoints overview
-
-| Method | Path        | Purpose                              |
-| ------ | ----------- | ------------------------------------ |
-| POST   | `/redeem`   | Redeem a code on a player account    |
-| POST   | `/info`     | Look up player info by `player_id`   |
-| POST   | `/stats`    | Usage counters and remaining quota   |
-| POST   | `/history`  | Recent redeem attempts               |
-
-Any other method or unknown path returns `404 {"detail":"error"}`.
-
-## Authentication
-
-Every request must include:
-
-```
-x-key: <api-key>
-```
-
-A missing, unknown or expired key returns `401 {"detail":"error"}`. Details
-are omitted on purpose. After 10 consecutive `401` responses from the same
-IP the IP is banned for one hour.
-
-## Rate limits
-
-| Limit                    | Scope        | Window               |
-| ------------------------ | ------------ | -------------------- |
-| 5 requests / minute      | per API key  | 60 s                 |
-| 1000 redemptions / day   | per API key  | resets 00:00 MSK     |
-| 30 requests / minute     | per IP       | 60 s                 |
-| 10 concurrent `/redeem`  | server-wide  | —                    |
-
-A quota violation returns HTTP `429`. The first violation wins — checks run
-in this order: per-IP rate → key auth → per-key 5/min → daily 1000 →
-concurrency.
-
-## Localization
-
-The `message` field in responses follows the language the key owner picked
-in the Telegram bot (Russian or English). Other fields (status codes, field
-names, `/stats` and `/history` payloads) are language-independent. Changing
-the language in the bot takes effect on the very next API call.
+<p align="center">
+  <a href="https://t.me/exfador"><img src="https://img.shields.io/badge/Buy_API_key-@exfador-2CA5E0?logo=telegram&logoColor=white" alt="Buy"></a>
+  <a href="https://t.me/midasbuyapi"><img src="https://img.shields.io/badge/News-@midasbuyapi-229ED9?logo=telegram&logoColor=white" alt="Channel"></a>
+  <img src="https://img.shields.io/badge/node-%E2%89%A518-3C873A?logo=node.js&logoColor=white" alt="Node">
+  <img src="https://img.shields.io/badge/python-%E2%89%A53.10-3776AB?logo=python&logoColor=white" alt="Python">
+</p>
 
 ---
 
-## `POST /redeem`
-
-Redeem a Midasbuy code on the given player account.
-
-### Request body
-
-| Field       | Type   | Required | Description                |
-| ----------- | ------ | -------- | -------------------------- |
-| `player_id` | string | yes      | Numeric Midasbuy player ID |
-| `code`      | string | yes      | Redeem code as printed     |
-
-### Example
+## Quick start
 
 ```bash
 curl -X POST http://<your-server>:8000/redeem \
@@ -76,7 +24,62 @@ curl -X POST http://<your-server>:8000/redeem \
   -d '{"player_id":"51569444543","code":"Grmndgic2f2272H8be"}'
 ```
 
-### Success — HTTP 200
+```json
+{ "success": true, "message": "Code redeemed successfully", "nickname": "GNCOD" }
+```
+
+> The `x-key` is issued via the Telegram bot. Buy one from **[@exfador](https://t.me/exfador)**.
+> Updates and announcements: **[@midasbuyapi](https://t.me/midasbuyapi)**.
+
+## Endpoints
+
+| Method | Path        | What it does                          |
+| :----- | :---------- | :------------------------------------ |
+| POST   | `/redeem`   | Redeem a code on a player account     |
+| POST   | `/info`     | Look up player info by `player_id`    |
+| POST   | `/stats`    | Usage counters and remaining quota    |
+| POST   | `/history`  | Recent redeem attempts                |
+
+All endpoints are **POST**, body is JSON (≤ 16 KB). Every request needs the
+`x-key: <api-key>` header. Anything else returns `404 {"detail":"error"}`.
+
+## Rate limits
+
+| Scope         | Limit                       | Reset            |
+| :------------ | :-------------------------- | :--------------- |
+| per API key   | 5 requests / minute         | rolling 60 s     |
+| per API key   | 1000 redemptions / day      | 00:00 MSK        |
+| per IP        | 30 requests / minute        | rolling 60 s     |
+| server-wide   | 10 concurrent `/redeem`     | —                |
+
+Order of checks: per-IP → key auth → 5/min → 1000/day → concurrency.
+The first violation wins.
+
+## Status codes
+
+| Code | Meaning                                                                   |
+| :--: | :------------------------------------------------------------------------ |
+| 200  | Processed. See `success` in the body for the actual outcome.              |
+| 400  | Validation error. Body has `success: false` and a localized `message`.    |
+| 401  | Auth failed. Body: `{"detail":"error"}`. No details on purpose.           |
+| 404  | Unknown endpoint / wrong method. Body: `{"detail":"error"}`.              |
+| 429  | Quota exceeded. Localized `message` for key limits.                       |
+
+After 10 consecutive `401` from the same IP the IP is banned for 1 hour.
+
+---
+
+## `POST /redeem`
+
+Redeem a Midasbuy code on the given player account.
+
+**Body**
+
+```json
+{ "player_id": "51569444543", "code": "Grmndgic2f2272H8be" }
+```
+
+**Success** (`HTTP 200`)
 
 ```json
 {
@@ -86,57 +89,29 @@ curl -X POST http://<your-server>:8000/redeem \
 }
 ```
 
-### Failure — HTTP 200, `success: false`
+**Failure** (`HTTP 200`, `success: false`)
 
 ```json
-{ "success": false, "message": "<localized error text>" }
+{ "success": false, "message": "<localized error>" }
 ```
 
-| Reason                 | RU                                                                                  | EN                                                                                |
-| ---------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| invalid code           | Код недействителен. Проверьте правильность ввода                                    | Code is invalid. Please check the value and try again                             |
-| already used           | Этот код уже был активирован ранее                                                  | This code has already been redeemed                                               |
-| expired                | Срок действия кода истёк, активация больше недоступна                               | Code has expired and can no longer be redeemed                                    |
-| player not found       | Игрок с таким ID не найден. Проверьте Player ID и попробуйте снова                  | Player with this ID was not found. Check the Player ID and try again              |
-| authorization outdated | Авторизация Midasbuy устарела. Обратитесь к администратору для обновления           | Midasbuy authorization is outdated. Please contact the administrator              |
-| generic failure        | Не удалось активировать код. Попробуйте позже или обратитесь к администратору       | Failed to redeem the code. Try again later or contact the administrator           |
-
-### Quota — HTTP 429
-
-| Reason             | RU                                                                                       | EN                                                                       |
-| ------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| per-key 5/min      | Слишком много запросов. Лимит: 5 в минуту. Подождите немного                             | Too many requests. Limit: 5 per minute. Please slow down                 |
-| daily 1000         | Достигнут суточный лимит активаций (1000 в сутки). Счётчик обнулится в 00:00 по МСК      | Daily redeem limit reached (1000 per day). Counter resets at 00:00 MSK   |
-| server overloaded  | Сервер сейчас перегружен. Повторите запрос через несколько секунд                        | Server is currently overloaded. Please retry in a few seconds            |
-
-### Bad request — HTTP 400
-
-| RU                                                  | EN                                              |
-| --------------------------------------------------- | ----------------------------------------------- |
-| В теле запроса должны быть поля player_id и code    | Request body must contain `player_id` and `code` |
+Possible reasons: invalid code · already used · expired · player not found ·
+authorization outdated · generic failure. See **[Error messages](#error-messages)**
+for exact RU/EN texts.
 
 ---
 
 ## `POST /info`
 
-Look up player info on Midasbuy by `player_id`.
+Look up player info by `player_id`.
 
-### Request body
+**Body**
 
-| Field       | Type   | Required | Description                |
-| ----------- | ------ | -------- | -------------------------- |
-| `player_id` | string | yes      | Numeric Midasbuy player ID |
-
-### Example
-
-```bash
-curl -X POST http://<your-server>:8000/info \
-  -H "x-key: <api-key>" \
-  -H "Content-Type: application/json" \
-  -d '{"player_id":"51569444543"}'
+```json
+{ "player_id": "51569444543" }
 ```
 
-### Success — HTTP 200
+**Success**
 
 ```json
 {
@@ -148,92 +123,49 @@ curl -X POST http://<your-server>:8000/info \
 }
 ```
 
-### Failure — HTTP 200, `success: false`
-
-| Reason                 | RU                                                                            | EN                                                                  |
-| ---------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| player not found       | Игрок с таким ID не найден. Проверьте Player ID и попробуйте снова            | Player with this ID was not found. Check the Player ID and try again |
-| authorization outdated | Авторизация Midasbuy устарела. Обратитесь к администратору для обновления     | Midasbuy authorization is outdated. Please contact the administrator |
-| generic failure        | Не удалось получить информацию об игроке. Попробуйте позже                    | Failed to retrieve player info. Please try again later              |
-
-### Bad request — HTTP 400
-
-| RU                                              | EN                                          |
-| ----------------------------------------------- | ------------------------------------------- |
-| В теле запроса должно быть поле player_id       | Request body must contain `player_id`        |
+**Failure** (`success: false`) — player not found · authorization outdated ·
+generic failure. See **[Error messages](#error-messages)**.
 
 ---
 
 ## `POST /stats`
 
-Returns usage counters and remaining quota for the current API key. The
-payload is language-independent.
+Returns usage counters and remaining quota for the current API key.
+Payload is language-independent.
 
-### Request body
+**Body**: `{}`
 
-```json
-{}
-```
-
-### Example
-
-```bash
-curl -X POST http://<your-server>:8000/stats \
-  -H "x-key: <api-key>" \
-  -H "Content-Type: application/json" \
-  -d '{}'
-```
-
-### Response — HTTP 200
+**Response**
 
 ```json
 {
   "success": true,
-
   "key": {
     "expires_at":     1782384336,
     "expires_at_iso": "2026-06-25 10:45:36",
     "ttl_seconds":    2590409
   },
-
   "rate_limit_minute": {
-    "max":            5,
-    "used":           1,
-    "remaining":      4,
-    "window_seconds": 60
+    "max": 5, "used": 1, "remaining": 4, "window_seconds": 60
   },
-
   "daily_redeem": {
-    "limit":            1000,
-    "used":             2,
-    "remaining":        998,
+    "limit": 1000, "used": 2, "remaining": 998,
     "reset_at":         1779829200,
     "reset_at_msk":     "2026-05-27 00:00:00 MSK",
     "reset_in_seconds": 35273,
     "timezone":         "MSK (UTC+3)"
   },
-
-  "totals": {
-    "success":  1,
-    "fail":     1,
-    "all_time": 2
-  }
+  "totals": { "success": 1, "fail": 1, "all_time": 2 }
 }
 ```
 
-### Field reference
-
-| Field                            | Description                                  |
-| -------------------------------- | -------------------------------------------- |
-| `key.expires_at`                 | unix timestamp of subscription end           |
-| `key.ttl_seconds`                | seconds until the subscription expires       |
-| `rate_limit_minute.used`         | requests made in the current 60-second window |
-| `rate_limit_minute.remaining`    | requests still allowed in the current window |
-| `daily_redeem.used`              | `/redeem` calls made today (MSK day)         |
-| `daily_redeem.remaining`         | `/redeem` calls left today                   |
-| `daily_redeem.reset_at`          | unix timestamp of the next 00:00 MSK         |
-| `daily_redeem.reset_in_seconds`  | seconds until the daily counter resets       |
-| `totals`                         | lifetime success / fail counts for this key  |
+| Field                          | Meaning                                    |
+| :----------------------------- | :----------------------------------------- |
+| `key.ttl_seconds`              | seconds until the subscription expires     |
+| `rate_limit_minute.remaining`  | requests still allowed this minute         |
+| `daily_redeem.remaining`       | `/redeem` calls left today                 |
+| `daily_redeem.reset_in_seconds`| seconds until daily counter resets         |
+| `totals`                       | lifetime success / fail / total for the key |
 
 ---
 
@@ -241,22 +173,15 @@ curl -X POST http://<your-server>:8000/stats \
 
 Recent `/redeem` attempts for the current API key, newest first.
 
-### Request body
+**Body**
 
-| Field   | Type    | Required | Description                |
-| ------- | ------- | -------- | -------------------------- |
-| `limit` | integer | no       | `1..500`, default `50`     |
-
-### Example
-
-```bash
-curl -X POST http://<your-server>:8000/history \
-  -H "x-key: <api-key>" \
-  -H "Content-Type: application/json" \
-  -d '{"limit":3}'
+```json
+{ "limit": 50 }
 ```
 
-### Response — HTTP 200
+`limit` — `1..500`, default `50`.
+
+**Response**
 
 ```json
 {
@@ -269,13 +194,6 @@ curl -X POST http://<your-server>:8000/history \
       "player_id":      "51889127192",
       "code":           "Grmndgic2f2272H8be",
       "success":        true
-    },
-    {
-      "created_at":     1779792461,
-      "created_at_iso": "2026-05-26 10:47:41",
-      "player_id":      "51569444543",
-      "code":           "Grmndgic2f2272H8be",
-      "success":        false
     }
   ]
 }
@@ -283,21 +201,74 @@ curl -X POST http://<your-server>:8000/history \
 
 ---
 
-## Status codes
+## Error messages
 
-| Code | Meaning                                                                                              |
-| ---- | ---------------------------------------------------------------------------------------------------- |
-| 200  | Request processed. Check `success` in the body for the actual outcome of `/redeem` and `/info`.       |
-| 400  | Validation error. Body returns `success: false` and a localized `message`.                            |
-| 401  | Authentication failed. Body is `{"detail":"error"}`. Details are omitted on purpose.                  |
-| 404  | Unknown endpoint or wrong method. Body is `{"detail":"error"}`.                                       |
-| 429  | Quota / limit exceeded. For key-level limits the body is localized; for IP limits — `{"detail":"error"}`. |
-| 500  | Server-side error. Should not happen in normal operation.                                             |
+The `message` field follows the language the key owner picked in the Telegram
+bot (Russian or English). Switching the language in the bot takes effect
+on the very next API call.
 
-## Notes
+<details>
+<summary><b><code>/redeem</code> — outcomes</b></summary>
 
-- All endpoints are `POST`. `GET`, `PUT`, `DELETE` return `404`.
-- JSON body must be valid and not exceed 16 KB.
-- Timestamps in `*_iso` fields without an explicit `MSK` suffix are UTC.
-- The locale for `message` follows the Telegram-bot setting of the key
-  owner. It is changed via `/start` → profile → Russian / English.
+| Reason                 | RU |
+| :--------------------- | :-- |
+| success                | Код успешно активирован — товар зачислен на аккаунт |
+| invalid code           | Код недействителен. Проверьте правильность ввода |
+| already used           | Этот код уже был активирован ранее |
+| expired                | Срок действия кода истёк, активация больше недоступна |
+| player not found       | Игрок с таким ID не найден. Проверьте Player ID и попробуйте снова |
+| authorization outdated | Авторизация Midasbuy устарела. Обратитесь к администратору для обновления |
+| generic failure        | Не удалось активировать код. Попробуйте позже или обратитесь к администратору |
+
+| Reason                 | EN |
+| :--------------------- | :-- |
+| success                | Code redeemed successfully — the item has been delivered to the account |
+| invalid code           | Code is invalid. Please check the value and try again |
+| already used           | This code has already been redeemed |
+| expired                | Code has expired and can no longer be redeemed |
+| player not found       | Player with this ID was not found. Check the Player ID and try again |
+| authorization outdated | Midasbuy authorization is outdated. Please contact the administrator |
+| generic failure        | Failed to redeem the code. Try again later or contact the administrator |
+
+</details>
+
+<details>
+<summary><b><code>/info</code> — outcomes</b></summary>
+
+| Reason                 | RU |
+| :--------------------- | :-- |
+| player not found       | Игрок с таким ID не найден. Проверьте Player ID и попробуйте снова |
+| authorization outdated | Авторизация Midasbuy устарела. Обратитесь к администратору для обновления |
+| generic failure        | Не удалось получить информацию об игроке. Попробуйте позже |
+
+| Reason                 | EN |
+| :--------------------- | :-- |
+| player not found       | Player with this ID was not found. Check the Player ID and try again |
+| authorization outdated | Midasbuy authorization is outdated. Please contact the administrator |
+| generic failure        | Failed to retrieve player info. Please try again later |
+
+</details>
+
+<details>
+<summary><b>Quota errors — <code>HTTP 429</code></b></summary>
+
+| Reason            | RU |
+| :---------------- | :-- |
+| 5/min per key     | Слишком много запросов. Лимит: 5 в минуту. Подождите немного |
+| 1000/day per key  | Достигнут суточный лимит активаций (1000 в сутки). Счётчик обнулится в 00:00 по МСК |
+| server overloaded | Сервер сейчас перегружен. Повторите запрос через несколько секунд |
+
+| Reason            | EN |
+| :---------------- | :-- |
+| 5/min per key     | Too many requests. Limit: 5 per minute. Please slow down |
+| 1000/day per key  | Daily redeem limit reached (1000 per day). Counter resets at 00:00 MSK |
+| server overloaded | Server is currently overloaded. Please retry in a few seconds |
+
+</details>
+
+---
+
+## Contacts
+
+- 🔑 **Buy an API key** — [@exfador](https://t.me/exfador)
+- 📣 **News & updates** — [@midasbuyapi](https://t.me/midasbuyapi)
